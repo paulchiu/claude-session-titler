@@ -141,6 +141,12 @@ describe('onPrompt', () => {
     })
   })
 
+  it('keeps the missing-model warning when it applies a title', () => {
+    expect(
+      onPrompt({ pending: 'New title', isModelWarned: true }, undefined).record.isModelWarned,
+    ).toBe(true)
+  })
+
   it('replaces its own earlier title', () => {
     const outcome = onPrompt({ applied: 'Old', pending: 'New', checkedAt: 4 }, 'Old')
     expect(outcome.title).toBe('New')

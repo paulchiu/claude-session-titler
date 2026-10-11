@@ -158,7 +158,10 @@ export const onPrompt = (
   if (record.pending === undefined || record.pending === sessionTitle) {
     return { record: { ...record, pending: undefined } }
   }
-  return { record: { applied: record.pending, checkedAt: record.checkedAt }, title: record.pending }
+  return {
+    record: { ...record, applied: record.pending, pending: undefined },
+    title: record.pending,
+  }
 }
 
 /** Records a finished check at `turns` prompts and the title it produced, if any. */
