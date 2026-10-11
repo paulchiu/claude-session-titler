@@ -1,5 +1,5 @@
 import { execFileSync } from 'node:child_process'
-import { readFileSync } from 'node:fs'
+import { readFileSync, statSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 
@@ -37,5 +37,22 @@ describe('plugin folder', () => {
       'hooks/title.ts',
       'tests/register.test.ts',
     ])
+  })
+})
+
+describe('plugin icon', () => {
+  const ICON = 'plugin/.claude-plugin/icon.png'
+  const PNG_SIGNATURE = '89504e470d0a1a0a'
+
+  it('is a square PNG between 512 and 2048 px under 2 MB', () => {
+    const png = readFileSync(join(ROOT, ICON))
+    const width = png.readUInt32BE(16)
+    const height = png.readUInt32BE(20)
+
+    expect(png.subarray(0, 8).toString('hex')).toBe(PNG_SIGNATURE)
+    expect(width).toBe(height)
+    expect(width).toBeGreaterThanOrEqual(512)
+    expect(width).toBeLessThanOrEqual(2048)
+    expect(statSync(join(ROOT, ICON)).size).toBeLessThan(2 * 1024 * 1024)
   })
 })
