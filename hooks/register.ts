@@ -52,11 +52,14 @@ const check = async ($: EngineInterface, model: string): Promise<void> => {
     maxTokens: 40,
     timeoutMs: TIMEOUT_MS,
   })
-  if (!reply.isAnswered && reply.reason === 'api-error' && reply.error === 'model_not_found') {
+  const isModelMissing =
+    !reply.isAnswered && reply.reason === 'api-error' && reply.error === 'model_not_found'
+  if (isModelMissing && !record.isModelWarned) {
     $.ui.toast(`session-titler: model "${model}" not found; check its Configure options in /plugin`)
   }
   const title = reply.isAnswered ? sanitizeTitle(reply.text) : null
-  await writeRecord($, sessionId, onChecked(await readRecord($, sessionId), turns, title))
+  const checked = onChecked(await readRecord($, sessionId), turns, title)
+  await writeRecord($, sessionId, isModelMissing ? { ...checked, isModelWarned: true } : checked)
 }
 
 export const register: Register = (on, options) => {

@@ -16,6 +16,8 @@ export type SessionRecord = {
   readonly checkedAt?: number
   /** Set once the person names the session themselves; the titler then stays out. */
   readonly isUserNamed?: boolean
+  /** Set once the person has been told the configured model was not found. */
+  readonly isModelWarned?: boolean
 }
 
 export const MAX_GAP = 8
