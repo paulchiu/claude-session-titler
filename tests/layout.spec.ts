@@ -1,5 +1,6 @@
 import { execFileSync } from 'node:child_process'
-import { readFileSync, statSync } from 'node:fs'
+import { cpSync, mkdtempSync, readFileSync, statSync } from 'node:fs'
+import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 
@@ -54,5 +55,25 @@ describe('plugin icon', () => {
     expect(width).toBeGreaterThanOrEqual(512)
     expect(width).toBeLessThanOrEqual(2048)
     expect(statSync(join(ROOT, ICON)).size).toBeLessThan(2 * 1024 * 1024)
+  })
+})
+
+describe('version bump', () => {
+  const MANIFEST = 'plugin/.claude-plugin/plugin.json'
+
+  it('changes only the version line of the plugin manifest', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'version-bump-'))
+    cpSync(join(ROOT, MANIFEST), join(dir, MANIFEST))
+    execFileSync('node', [join(ROOT, 'version-bump.mjs')], {
+      cwd: dir,
+      env: { ...process.env, npm_package_version: '9.8.7' },
+    })
+
+    const before = readFileSync(join(ROOT, MANIFEST), 'utf8').split('\n')
+    const after = readFileSync(join(dir, MANIFEST), 'utf8').split('\n')
+    const changed = after.filter((line, i) => line !== before[i])
+
+    expect(after.length).toBe(before.length)
+    expect(changed).toEqual(['  "version": "9.8.7",'])
   })
 })
