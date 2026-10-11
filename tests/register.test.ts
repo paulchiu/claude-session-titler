@@ -1,5 +1,5 @@
 import type { Engine } from 'claude-code/testing'
-import type { On, SessionMessage } from 'claude-code'
+import type { ModelCompleteResult, On, SessionMessage } from 'claude-code'
 import { expect, mock, test } from 'claude-code/testing'
 
 const SESSION_ID = 'session-1'
@@ -16,12 +16,28 @@ const USAGE = {
   cache_creation_input_tokens: 0,
 }
 
-type World = { readonly asked: string[] }
+const NOT_FOUND: ModelCompleteResult = {
+  isAnswered: false,
+  reason: 'api-error',
+  status: 404,
+  error: 'model_not_found',
+  usage: USAGE,
+}
 
-/** Stands in for the session and the model beneath the plugin, recording each title request. */
-const world = (on: On, reply: string, turns: number): World => {
+type World = { readonly asked: string[]; readonly toasts: string[] }
+
+/**
+ * Stands in for the session and the model beneath the plugin, recording each
+ * title request and toast. A string reply is the model answering with it.
+ */
+const world = (on: On, reply: string | ModelCompleteResult, turns: number): World => {
   const asked: string[] = []
+  const toasts: string[] = []
   mock.store(on)
+  on('ui.toast', (_$, e) => {
+    toasts.push(e.text)
+    return { value: undefined }
+  })
   on('turn.complete', () => ({ text: '' }))
   on('classic.UserPromptSubmit', () => ({}))
   on('session.id', () => ({ value: SESSION_ID }))
@@ -29,9 +45,11 @@ const world = (on: On, reply: string, turns: number): World => {
   on('session.messages', () => ({ value: MESSAGES }))
   on('model.complete', (_$, e) => {
     asked.push(e.prompt)
-    return { value: { isAnswered: true, text: reply, usage: USAGE } }
+    return {
+      value: typeof reply === 'string' ? { isAnswered: true, text: reply, usage: USAGE } : reply,
+    }
   })
-  return { asked }
+  return { asked, toasts }
 }
 
 const completeTurn = async ($: Engine, clock: { advance: (ms: number) => Promise<void> }) => {
@@ -88,3 +106,18 @@ test('does not re-apply a title the session already has', async ($, on) => {
   expect(first.sessionTitle).toBe('Fix login redirect loop')
   expect(second.sessionTitle).toBe(undefined)
 })
+
+test(
+  'says when the configured model is not found',
+  { options: { model: 'haikoo' } },
+  async ($, on) => {
+    const { toasts } = world(on, NOT_FOUND, 1)
+    const clock = mock.clock(on)
+
+    await completeTurn($, clock)
+
+    expect(toasts.length).toBe(1)
+    expect(toasts[0]).toContain('"haikoo"')
+    expect(toasts[0]).toContain('Configure options')
+  },
+)
