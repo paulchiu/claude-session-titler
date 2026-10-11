@@ -138,3 +138,24 @@ test('says so once per session', async ($, on) => {
   expect(asked.length).toBe(2)
   expect(toasts.length).toBe(1)
 })
+
+const OTHER_FAILURES: readonly [string, ModelCompleteResult][] = [
+  ['aborted', { isAnswered: false, reason: 'aborted', usage: USAGE }],
+  ['empty', { isAnswered: false, reason: 'empty-reply', usage: USAGE }],
+  [
+    'rate limited',
+    { isAnswered: false, reason: 'api-error', status: 429, error: 'rate_limit', usage: USAGE },
+  ],
+]
+
+for (const [label, reply] of OTHER_FAILURES) {
+  test(`stays quiet when the reply is ${label}`, async ($, on) => {
+    const { asked, toasts } = world(on, reply)
+    const clock = mock.clock(on)
+
+    await completeTurn($, clock)
+
+    expect(asked.length).toBe(1)
+    expect(toasts.length).toBe(0)
+  })
+}
