@@ -1,8 +1,8 @@
 import { execFileSync } from 'node:child_process'
-import { cpSync, mkdtempSync, readFileSync, statSync } from 'node:fs'
+import { cpSync, mkdtempSync, readFileSync, rmSync, statSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vitest'
 
 const ROOT = join(import.meta.dirname, '..')
 
@@ -10,26 +10,25 @@ const readJson = (path: string): Record<string, unknown> =>
   JSON.parse(readFileSync(join(ROOT, path), 'utf8')) as Record<string, unknown>
 
 /** The folder the marketplace entry installs, relative to the repo root. */
-const pluginFolder = (): string => {
+const PLUGIN = ((): string => {
   const marketplace = readJson('.claude-plugin/marketplace.json') as {
     plugins: { name: string; source: string }[]
   }
   const entry = marketplace.plugins.find((p) => p.name === 'session-titler')
   if (entry === undefined) throw new Error('No session-titler entry in the marketplace')
   return entry.source
-}
+})()
+
+const MANIFEST = join(PLUGIN, '.claude-plugin/plugin.json')
+const ICON = join(PLUGIN, '.claude-plugin/icon.png')
 
 describe('plugin folder', () => {
   it('holds the manifest the marketplace entry names', () => {
-    const manifest = readJson(join(pluginFolder(), '.claude-plugin/plugin.json'))
-    expect(manifest.name).toBe('session-titler')
+    expect(readJson(MANIFEST).name).toBe('session-titler')
   })
 
   it('ships only the manifest, icon, hooks and engine tests', () => {
-    const tracked = execFileSync('git', ['ls-files'], {
-      cwd: join(ROOT, pluginFolder()),
-      encoding: 'utf8',
-    })
+    const tracked = execFileSync('git', ['ls-files'], { cwd: join(ROOT, PLUGIN), encoding: 'utf8' })
     expect(tracked.trim().split('\n').sort()).toEqual([
       '.claude-plugin/icon.png',
       '.claude-plugin/plugin.json',
@@ -42,15 +41,17 @@ describe('plugin folder', () => {
 })
 
 describe('plugin icon', () => {
-  const ICON = 'plugin/.claude-plugin/icon.png'
   const PNG_SIGNATURE = '89504e470d0a1a0a'
+  /** Where the first chunk's type, width and height sit in a PNG file. */
+  const IHDR = { type: 12, width: 16, height: 20 }
 
   it('is a square PNG between 512 and 2048 px under 2 MB', () => {
     const png = readFileSync(join(ROOT, ICON))
-    const width = png.readUInt32BE(16)
-    const height = png.readUInt32BE(20)
+    const width = png.readUInt32BE(IHDR.width)
+    const height = png.readUInt32BE(IHDR.height)
 
     expect(png.subarray(0, 8).toString('hex')).toBe(PNG_SIGNATURE)
+    expect(png.subarray(IHDR.type, IHDR.type + 4).toString('ascii')).toBe('IHDR')
     expect(width).toBe(height)
     expect(width).toBeGreaterThanOrEqual(512)
     expect(width).toBeLessThanOrEqual(2048)
@@ -59,10 +60,14 @@ describe('plugin icon', () => {
 })
 
 describe('version bump', () => {
-  const MANIFEST = 'plugin/.claude-plugin/plugin.json'
+  let dir: string | undefined
+
+  afterEach(() => {
+    if (dir !== undefined) rmSync(dir, { recursive: true, force: true })
+  })
 
   it('changes only the version line of the plugin manifest', () => {
-    const dir = mkdtempSync(join(tmpdir(), 'version-bump-'))
+    dir = mkdtempSync(join(tmpdir(), 'version-bump-'))
     cpSync(join(ROOT, MANIFEST), join(dir, MANIFEST))
     execFileSync('node', [join(ROOT, 'version-bump.mjs')], {
       cwd: dir,
