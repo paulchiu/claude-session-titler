@@ -174,3 +174,33 @@ export const onChecked = (
   checkedAt: turns,
   pending: title !== null && title !== record.applied ? title : undefined,
 })
+
+/** The parts of a model reply that say why it failed, if it did. */
+export type ReplyStatus = {
+  readonly isAnswered: boolean
+  readonly reason?: string
+  readonly error?: string
+}
+
+/** Whether the reply failed because the API does not know the model asked for. */
+export const isModelNotFound = (reply: ReplyStatus): boolean =>
+  !reply.isAnswered && reply.reason === 'api-error' && reply.error === 'model_not_found'
+
+export type CheckOutcome = { readonly record: SessionRecord; readonly warning?: string }
+
+/**
+ * Records a check whose model was not found. The warning is given once per
+ * session, since every later check fails the same way until the setting changes.
+ */
+export const onModelMissing = (
+  record: SessionRecord,
+  turns: number,
+  model: string,
+): CheckOutcome => ({
+  record: { ...onChecked(record, turns, null), isModelWarned: true },
+  ...(record.isModelWarned
+    ? {}
+    : {
+        warning: `session-titler: model "${model}" not found; check its Configure options in /plugin`,
+      }),
+})

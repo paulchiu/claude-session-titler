@@ -3,7 +3,9 @@ import {
   SYSTEM_PROMPT,
   buildTitlePrompt,
   isDue,
+  isModelNotFound,
   onChecked,
+  onModelMissing,
   onPrompt,
   sanitizeTitle,
   type SessionRecord,
@@ -52,14 +54,15 @@ const check = async ($: EngineInterface, model: string): Promise<void> => {
     maxTokens: 40,
     timeoutMs: TIMEOUT_MS,
   })
-  const isModelMissing =
-    !reply.isAnswered && reply.reason === 'api-error' && reply.error === 'model_not_found'
-  if (isModelMissing && !record.isModelWarned) {
-    $.ui.toast(`session-titler: model "${model}" not found; check its Configure options in /plugin`)
+  const latest = await readRecord($, sessionId)
+  if (!isModelNotFound(reply)) {
+    const title = reply.isAnswered ? sanitizeTitle(reply.text) : null
+    await writeRecord($, sessionId, onChecked(latest, turns, title))
+    return
   }
-  const title = reply.isAnswered ? sanitizeTitle(reply.text) : null
-  const checked = onChecked(await readRecord($, sessionId), turns, title)
-  await writeRecord($, sessionId, isModelMissing ? { ...checked, isModelWarned: true } : checked)
+  const { record: checked, warning } = onModelMissing(latest, turns, model)
+  await writeRecord($, sessionId, checked)
+  if (warning !== undefined) $.ui.toast(warning)
 }
 
 export const register: Register = (on, options) => {
