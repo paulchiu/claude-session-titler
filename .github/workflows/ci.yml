@@ -59,3 +59,29 @@ jobs:
 
       - name: Engine tests
         run: claude plugin test plugin
+
+  # Lives here rather than in its own workflow so `needs` holds the merge until CI passes;
+  # the main ruleset can't require checks because the release push has no bypass.
+  dependabot-auto-merge:
+    name: Merge eligible Dependabot PRs
+    needs: [quality-check, plugin-check]
+    if: github.event_name == 'pull_request' && github.actor == 'dependabot[bot]'
+    runs-on: ubuntu-26.04
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - name: Fetch Dependabot metadata
+        id: metadata
+        uses: dependabot/fetch-metadata@v3
+        with:
+          github-token: '${{ secrets.GITHUB_TOKEN }}'
+
+      # Groups are limited to minor/patch for direct deps in dependabot.yml, but their
+      # update-type reports the largest bump of any dep (transitive included), so trust the group.
+      - name: Merge minor/patch updates
+        if: steps.metadata.outputs.dependency-group != '' || steps.metadata.outputs.update-type != 'version-update:semver-major'
+        run: gh pr merge --squash "$PR_URL"
+        env:
+          PR_URL: ${{ github.event.pull_request.html_url }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

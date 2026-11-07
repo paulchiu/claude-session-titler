@@ -41,7 +41,7 @@
 - Install: `npm install`
 - Everything: `npm run check` (typecheck, lint, format check, Vitest, validate, engine tests).
 - Try it: `claude --plugin-dir plugin`
-- Version bump: automated. Every PR carries one of `major`, `minor`, `patch` or `norelease`. On merge, the Release workflow runs `npm version`, whose `version` script syncs `plugin/.claude-plugin/plugin.json`, then tags `vX.Y.Z` and publishes a GitHub release. Claude Code updates installed copies only when `plugin.json`'s version changes, so never edit it by hand.
+- Version bump: automated. Every PR carries one of `major`, `minor`, `patch` or `norelease` (`norelease` wins if a semver label is also present). On merge, the Release workflow runs `npm version`, whose `version` script syncs `plugin/.claude-plugin/plugin.json`, then tags `vX.Y.Z` and publishes a GitHub release. Claude Code updates installed copies only when `plugin.json`'s version changes, so never edit it by hand.
 - Changelog: add entries under `## [Unreleased]` in `CHANGELOG.md` in each PR. The Release workflow stamps the heading on merge; don't rename it by hand.
 
 ## 7. Git commit convention

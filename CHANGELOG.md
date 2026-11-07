@@ -13,6 +13,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- Dependabot auto-merge now covers grouped updates and waits for CI to pass before merging.
+- A `norelease` label now skips the release even when a semver label is also present.
+
 ### Removed
 
 ## [0.1.2] - 2026-10-11
